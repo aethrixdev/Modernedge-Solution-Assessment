@@ -1,0 +1,32 @@
+{
+  "action": "transfer",
+  "employee_id": "E10044",
+  "employee_name": "Brian E. Walker",
+  "job_class": "Cleaner",
+  "effective_date": "10/26/2026",
+  "from_location": "BLD-05 (Bramwell House), Night, Dept 450",
+  "to_location": "BLD-06 (Bramwell Annex), Night, Dept 460",
+  "last_day_worked": null,
+  "remarks": "Employee request, closer to home. Pending ops review.",
+  "approvals": [
+    {
+      "role": "Human Resources",
+      "signed": true,
+      "signer": "Denise Coughlin",
+      "date": "10/21/2026"
+    },
+    {
+      "role": "Operations",
+      "signed": false,
+      "signer": null,
+      "date": null
+    },
+    {
+      "role": "Payroll",
+      "signed": false,
+      "signer": null,
+      "date": null
+    }
+  ],
+  "confidence": 0.95
+}

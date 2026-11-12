@@ -48,7 +48,9 @@ class CalloutExtraction(BaseModel):
     bereavement_relation: str | None = Field(description="for bereavement: the relative who died, in English (e.g. 'father')")
     stated_received_time: str | None = Field(
         description="if the message says WHEN the call-out was actually received or made (e.g. 'texted me this morning "
-                    "around 10:32', 'it's about 11 in the morning'), that time as 24h 'HH:MM'; else null.")
+                    "around 10:32', 'it's about 11 in the morning'), that time as 24h 'HH:MM'; else null. "
+                    "Only a time said in the message text itself: never copy the Recorded or Voicemail received "
+                    "header times")
     language: str = Field(description="language of the message, e.g. 'en', 'es', 'sq'")
     english_summary: str = Field(description="one short English sentence: who, when, why")
     confidence: float = Field(ge=0, le=1, description="how sure you are about the fields above")

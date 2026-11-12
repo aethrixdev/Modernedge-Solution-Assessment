@@ -1,0 +1,20 @@
+{
+  "is_absence": true,
+  "is_followup": false,
+  "employee_name": "Besnik Rexhepi",
+  "building_text": "Corlett",
+  "shift": "night",
+  "days": [
+    {
+      "kind": "relative",
+      "value": "today",
+      "text": "today"
+    }
+  ],
+  "category": "sick",
+  "bereavement_relation": null,
+  "stated_received_time": "11:00",
+  "language": "en",
+  "english_summary": "sick tonight, called about 11am",
+  "confidence": 0.95
+}

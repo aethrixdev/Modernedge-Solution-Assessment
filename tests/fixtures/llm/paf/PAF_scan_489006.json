@@ -1,0 +1,32 @@
+{
+  "action": "termination",
+  "employee_id": "E10010",
+  "employee_name": "Jennifer G. Moore",
+  "job_class": "Cleaner",
+  "effective_date": "10/09/2026",
+  "from_location": null,
+  "to_location": "BLD-01 (Halcyon Tower), Night",
+  "last_day_worked": "10/09/2026",
+  "remarks": "Two weeks notice given. Return badge and keys.",
+  "approvals": [
+    {
+      "role": "Human Resources",
+      "signed": true,
+      "signer": "Denise Coughlin",
+      "date": "10/09/2026"
+    },
+    {
+      "role": "Operations",
+      "signed": true,
+      "signer": "Paul Brennan",
+      "date": "10/12/2026"
+    },
+    {
+      "role": "Payroll",
+      "signed": true,
+      "signer": "Ina Vasquez",
+      "date": "10/13/2026"
+    }
+  ],
+  "confidence": 0.95
+}

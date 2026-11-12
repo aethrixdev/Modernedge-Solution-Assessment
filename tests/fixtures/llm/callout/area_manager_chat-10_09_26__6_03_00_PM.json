@@ -1,0 +1,14 @@
+{
+  "is_absence": false,
+  "is_followup": false,
+  "employee_name": null,
+  "building_text": null,
+  "shift": null,
+  "days": [],
+  "category": "not_absence",
+  "bereavement_relation": null,
+  "stated_received_time": null,
+  "language": "en",
+  "english_summary": "OT approved",
+  "confidence": 0.95
+}

@@ -30,7 +30,7 @@ T = TypeVar("T", bound=BaseModel)
 
 URL = os.getenv("GROQ_URL", "https://api.groq.com/openai/v1/chat/completions")
 MODEL = os.getenv("GROQ_MODEL") or "openai/gpt-oss-120b"
-PROMPT_VERSION = "v1"   # bump when prompts change, so old cache entries are not reused
+PROMPT_VERSION = "v2"   # bump when prompts change, so old cache entries are not reused
 
 
 class LLMUnavailable(RuntimeError):
