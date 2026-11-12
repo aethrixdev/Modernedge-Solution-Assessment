@@ -5,3 +5,4 @@ responses==0.25.3
 openpyxl==3.1.5
 tzdata==2026.6          # time zones on Windows (zoneinfo needs it)
 pypdf==5.1.0
+pydantic==2.14.3

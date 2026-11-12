@@ -12,3 +12,4 @@
 - Matching people: I only trust a shared ID if the names agree too, since dispatch's HR number is typed by hand and can be wrong. Two people with the same name get left for review.
 - "Tonight", "Friday", "10/22" get turned into dates in code, counted from when the person actually called, not when reception typed it up. A voicemail at 00:25 saying "tomorrow" means the coming shift. I flag that one as less certain.
 - Payroll codes are plain code, never the LLM. Same order as the coding guide: eligible? then 4h notice? then sick days left? If I can't tell when the call came in, I don't pick a code. It goes to review. Billing math is checked against amounts on real invoices.
+- Tried Groq (gpt-oss-120b) first, since I didn't have an Anthropic key yet and had asked the company about it. The LLM just reads the message; the code decides the rest.
