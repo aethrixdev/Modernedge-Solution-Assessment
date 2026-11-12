@@ -1,17 +1,20 @@
 """Tests for the API clients, using fake HTTP replies (the `responses` library).
 
 They check the tricky behaviours without needing the real systems:
-retries on 503/429, paging, no retry on the payroll write, and token refresh.
+retries on 503/429, paging, no retry on the payroll write, token refresh,
+and re-submitting a FAILED finance report.
 """
 import pytest
 import responses
 
 from pipeline.clients import http
 from pipeline.clients.dispatch import DispatchClient
+from pipeline.clients.finance import FinanceClient, ReportError
 from pipeline.clients.payroll import PayrollClient
 
 P = "http://payroll"
 D = "http://dispatch"
+F = "http://finance"
 
 
 @pytest.fixture(autouse=True)
@@ -97,3 +100,34 @@ def test_dispatch_retries_once_on_401():
     responses.get(f"{D}/v2/sites", status=401, json={"error": "invalid_token"})
     responses.get(f"{D}/v2/sites", json={"data": [{"site_id": "S1"}]})
     assert DispatchClient(D, "id", "secret").sites() == [{"site_id": "S1"}]
+
+
+# ---- finance --------------------------------------------------------------------
+@responses.activate
+def test_finance_resubmits_failed_report():
+    responses.post(f"{F}/api/v1/reports", json={"job_id": "J1"})
+    responses.post(f"{F}/api/v1/reports", json={"job_id": "J2"})
+    responses.get(f"{F}/api/v1/reports/J1", json={"status": "FAILED", "error": "boom"})
+    responses.get(f"{F}/api/v1/reports/J2", json={"status": "RUNNING"})
+    responses.get(f"{F}/api/v1/reports/J2", json={"status": "COMPLETE"})
+    responses.get(f"{F}/api/v1/reports/J2/file", body="REPORT TEXT")
+    client = FinanceClient(F, "u", "p", poll_interval=0)
+    assert client.run_report("INV_REG", "NBS", "2026-10") == "REPORT TEXT"
+
+
+@responses.activate
+def test_finance_gives_up_after_max_submits():
+    responses.post(f"{F}/api/v1/reports", json={"job_id": "J1"})
+    responses.get(f"{F}/api/v1/reports/J1", json={"status": "FAILED", "error": "boom"})
+    client = FinanceClient(F, "u", "p", poll_interval=0, max_submits=2)
+    with pytest.raises(ReportError):
+        client.run_report("INV_REG", "NBS", "2026-10")
+
+
+@responses.activate
+def test_finance_customers_pages_by_offset():
+    responses.get(f"{F}/api/v1/customers", json={"items": [{"customer_no": "C1"}], "total": 2})
+    responses.get(f"{F}/api/v1/customers", json={"items": [{"customer_no": "C2"}], "total": 2})
+    customers = FinanceClient(F, "u", "p").customers()
+    assert [c["customer_no"] for c in customers] == ["C1", "C2"]
+    assert "offset=1" in responses.calls[1].request.url
