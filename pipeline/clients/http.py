@@ -5,7 +5,8 @@ All three clients use `send()`, so retry behaviour lives in one place.
 Retry rules:
 - Network errors (connection refused, timeout) are retried.
 - 429 (too many requests) and 5xx (server busy or broken) are retried.
-- We wait 0.5s, 1s, 2s, 4s ... between tries (exponential backoff), capped.
+- If the server sends a `Retry-After` header, we wait that long.
+- Otherwise we wait 0.5s, 1s, 2s, 4s ... (exponential backoff), capped.
 - Anything else (200, 404, 422 ...) is returned to the caller right away.
 
 `retry=False` turns retries off. The payroll POST uses that, because blindly
@@ -27,6 +28,17 @@ sleep = time.sleep
 def backoff_delay(attempt: int, base: float = 0.5, cap: float = 30.0) -> float:
     """Attempt 1 -> 0.5s, 2 -> 1s, 3 -> 2s, ... never more than `cap`."""
     return min(cap, base * (2 ** (attempt - 1)))
+
+
+def retry_after_seconds(resp: requests.Response) -> float | None:
+    """Read the Retry-After header if it is a number of seconds."""
+    value = resp.headers.get("Retry-After")
+    if value is None:
+        return None
+    try:
+        return max(0.0, float(value))
+    except ValueError:
+        return None  # an HTTP date; fall back to normal backoff
 
 
 def send(
@@ -54,7 +66,7 @@ def send(
             continue
 
         if retry and resp.status_code in RETRY_STATUSES and attempt < max_attempts:
-            delay = backoff_delay(attempt)
+            delay = retry_after_seconds(resp) or backoff_delay(attempt)
             log.warning("%s %s -> %d; retry %d in %.1fs", method, url, resp.status_code, attempt, delay)
             sleep(delay)
             continue

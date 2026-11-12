@@ -1,15 +1,17 @@
 """Tests for the API clients, using fake HTTP replies (the `responses` library).
 
 They check the tricky behaviours without needing the real systems:
-retries on 503, paging, and no retry on the payroll write.
+retries on 503/429, paging, no retry on the payroll write, and token refresh.
 """
 import pytest
 import responses
 
 from pipeline.clients import http
+from pipeline.clients.dispatch import DispatchClient
 from pipeline.clients.payroll import PayrollClient
 
 P = "http://payroll"
+D = "http://dispatch"
 
 
 @pytest.fixture(autouse=True)
@@ -35,6 +37,15 @@ def test_get_retries_503_then_succeeds(no_waiting):
     assert no_waiting == [0.5, 1]
 
 
+@responses.activate
+def test_429_waits_for_retry_after(no_waiting):
+    responses.post(f"{D}/oauth/token", json={"access_token": "t", "expires_in": 300})
+    responses.get(f"{D}/v2/sites", status=429, headers={"Retry-After": "7"})
+    responses.get(f"{D}/v2/sites", json={"data": [{"site_id": "S1"}], "next_cursor": None})
+    assert DispatchClient(D, "id", "secret").sites() == [{"site_id": "S1"}]
+    assert no_waiting == [7.0]
+
+
 # ---- payroll --------------------------------------------------------------------
 @responses.activate
 def test_payroll_sends_api_key_and_reads_all_pages():
@@ -52,3 +63,37 @@ def test_payroll_write_is_never_retried_automatically():
     resp = PayrollClient(P, "k").create_absence(10001, "2026-10-14", "SKP", 8)
     assert resp.status_code == 503
     assert len(responses.calls) == 1  # sent exactly once
+
+
+# ---- dispatch -------------------------------------------------------------------
+@responses.activate
+def test_dispatch_follows_cursor_until_empty():
+    responses.post(f"{D}/oauth/token", json={"access_token": "t", "expires_in": 300})
+    responses.get(f"{D}/v2/workers", json={"data": [{"worker_id": "W1"}], "next_cursor": "abc"})
+    responses.get(f"{D}/v2/workers", json={"data": [{"worker_id": "W2"}], "next_cursor": None})
+    workers = DispatchClient(D, "id", "secret").workers()
+    assert [w["worker_id"] for w in workers] == ["W1", "W2"]
+    assert "cursor=abc" in responses.calls[2].request.url
+
+
+@responses.activate
+def test_dispatch_refreshes_token_when_it_expires():
+    now = [0.0]
+    responses.post(f"{D}/oauth/token", json={"access_token": "first", "expires_in": 300})
+    responses.post(f"{D}/oauth/token", json={"access_token": "second", "expires_in": 300})
+    responses.get(f"{D}/v2/sites", json={"data": []})
+    client = DispatchClient(D, "id", "secret", clock=lambda: now[0])
+    client.sites()
+    now[0] = 280  # past 300 - 30s safety margin
+    client.sites()
+    auth = [c.request.headers.get("Authorization") for c in responses.calls if "/v2/" in c.request.url]
+    assert auth == ["Bearer first", "Bearer second"]
+
+
+@responses.activate
+def test_dispatch_retries_once_on_401():
+    responses.post(f"{D}/oauth/token", json={"access_token": "old", "expires_in": 300})
+    responses.post(f"{D}/oauth/token", json={"access_token": "new", "expires_in": 300})
+    responses.get(f"{D}/v2/sites", status=401, json={"error": "invalid_token"})
+    responses.get(f"{D}/v2/sites", json={"data": [{"site_id": "S1"}]})
+    assert DispatchClient(D, "id", "secret").sites() == [{"site_id": "S1"}]
