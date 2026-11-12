@@ -2,11 +2,13 @@
 
 ## Day 1
 
-- Set up the project so all settings come from environment variables, with DRY_RUN on by default so nothing gets written to payroll by accident. Code is written with Claude Code (Opus 5.5) and reviewed by me.
-- Started the API clients with payroll, using Claude as well, and had it leave a short comment on each function. Reads retry on 429/5xx with backoff; the payroll write is sent once, since a resend after a lost reply could duplicate an absence.
-- Every feature gets its own tests in the same commit, using fake HTTP replies, so the behaviour is checked without the real systems running.
-- The dispatch token is refreshed 30s before it expires and retried only once on a 401, so a bad secret fails loudly instead of looping; 429s wait for the server's Retry-After.
-- Reading the client files: the HR roster, both time clock layouts and both call-out sources are read into one shape each. Layouts and headers are detected from the content, not file names or column positions, so another month's export still works.
-- Contracts and finance reports are read with plain code, not the LLM, since they follow fixed templates. Every finance report is checked against its own printed totals; a mismatch goes to exceptions instead of being hidden.
-- Buildings use the Schedule B names from the contracts. Other spellings are matched by their words (TWR = TOWER, 1 = ONE); codes with no name (HR's BLD-xx) are mapped by where those people actually punch in. Ambiguous names like "Bramwell" are never guessed.
-- People are matched across HR, time clock, payroll and dispatch. Shared IDs are trusted only when the names agree (dispatch's hr_employee_no is typed by hand); messy names like "Angela B." or "Brown, Angela" are matched with building and shift as tie-breakers, and two people with the same name are left for review instead of guessed.
+- Settings all come from env vars. DRY_RUN is on by default so I can't write to payroll by accident. I'm building with Claude Code (Opus 5.5) and reviewing each piece before I commit it.
+- Started with the payroll client and had Claude add a short comment to every function. GETs retry on 429/5xx, but the payroll POST only goes out once. If the reply gets lost and I resend, I could end up with a duplicate absence.
+- Every feature gets tests in the same commit. They fake the HTTP replies, so I don't need the mock systems running.
+- Dispatch tokens get refreshed 30s early, and I only retry once on a 401. If the secret is wrong I want it to fail, not loop. On a 429 I wait however long Retry-After says.
+- HR, time clock and call-out files: I detect the layout from the headers, not the file name. The time clock switched formats mid-month, and next month's export might too.
+- Contracts and finance reports follow fixed templates, so plain code is enough here, no LLM. Each finance report gets checked against its own printed totals. If they don't match, it goes to exceptions.
+- Building names come from Schedule B in the contracts. Other spellings get matched word by word (TWR = TOWER). HR's BLD-xx codes have no name at all, so I map them by where those people actually punch in. If a name like "Bramwell" could be two buildings, I don't guess.
+- Matching people: I only trust a shared ID if the names agree too, since dispatch's HR number is typed by hand and can be wrong. Two people with the same name get left for review.
+- "Tonight", "Friday", "10/22" get turned into dates in code, counted from when the person actually called, not when reception typed it up. A voicemail at 00:25 saying "tomorrow" means the coming shift. I flag that one as less certain.
+- Payroll codes are plain code, never the LLM. Same order as the coding guide: eligible? then 4h notice? then sick days left? If I can't tell when the call came in, I don't pick a code. It goes to review. Billing math is checked against amounts on real invoices.

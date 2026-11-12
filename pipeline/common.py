@@ -4,7 +4,7 @@ list of exceptions and data findings that every step can add to.
 import re
 import unicodedata
 from dataclasses import asdict, dataclass, field
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 
 def strip_accents(text: str) -> str:
@@ -23,6 +23,11 @@ def norm(text) -> str:
 def digits(text) -> str:
     """Keep only the digits: 'E10033' -> '10033'."""
     return re.sub(r"\D", "", str(text or ""))
+
+
+def money(value) -> Decimal:
+    """Round to the cent, half up (how accounting rounds, unlike Python's round())."""
+    return Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 def parse_amount(text) -> Decimal:
