@@ -1,13 +1,23 @@
-"""Small helpers shared by every step: text clean-up and the running list of
-exceptions and data findings that every step can add to.
+"""Small helpers shared by every step: text clean-up, money, and the running
+list of exceptions and data findings that every step can add to.
 """
 import re
 from dataclasses import asdict, dataclass, field
+from decimal import Decimal
 
 
 def digits(text) -> str:
     """Keep only the digits: 'E10033' -> '10033'."""
     return re.sub(r"\D", "", str(text or ""))
+
+
+def parse_amount(text) -> Decimal:
+    """'72,400.00' -> 72400.00 ; '(1,250.00)' -> -1250.00 ; '1250.00-' -> -1250.00"""
+    s = str(text).strip().replace(",", "").replace("$", "")
+    negative = s.startswith("(") and s.endswith(")") or s.endswith("-") or s.startswith("-")
+    s = s.strip("()-")
+    value = Decimal(s) if s else Decimal("0")
+    return -value if negative else value
 
 
 @dataclass

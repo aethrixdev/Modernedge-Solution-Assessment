@@ -7,3 +7,4 @@
 - Every feature gets its own tests in the same commit, using fake HTTP replies, so the behaviour is checked without the real systems running.
 - The dispatch token is refreshed 30s before it expires and retried only once on a 401, so a bad secret fails loudly instead of looping; 429s wait for the server's Retry-After.
 - Reading the client files: the HR roster, both time clock layouts and both call-out sources are read into one shape each. Layouts and headers are detected from the content, not file names or column positions, so another month's export still works.
+- Contracts and finance reports are read with plain code, not the LLM, since they follow fixed templates. Every finance report is checked against its own printed totals; a mismatch goes to exceptions instead of being hidden.
