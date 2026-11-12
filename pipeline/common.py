@@ -2,8 +2,22 @@
 list of exceptions and data findings that every step can add to.
 """
 import re
+import unicodedata
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal
+
+
+def strip_accents(text: str) -> str:
+    """'Përshëndetje' -> 'Pershendetje'."""
+    return "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
+
+
+def norm(text) -> str:
+    """Upper case, no accents, only letters/digits separated by single spaces."""
+    if text is None:
+        return ""
+    text = strip_accents(str(text)).upper()
+    return re.sub(r"[^A-Z0-9]+", " ", text).strip()
 
 
 def digits(text) -> str:
