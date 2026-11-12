@@ -1,0 +1,32 @@
+{
+  "action": "new_hire",
+  "employee_id": "E10061",
+  "employee_name": "Wilfredo M. Gonzalez",
+  "job_class": "Porter",
+  "effective_date": "10/26/2026",
+  "from_location": null,
+  "to_location": "BLD-05 (Bramwell House), Day, Dept 450",
+  "last_day_worked": null,
+  "remarks": "Payroll record created; activation waits on union registration.",
+  "approvals": [
+    {
+      "role": "Human Resources",
+      "signed": true,
+      "signer": "Denise Coughlin",
+      "date": "10/20/2026"
+    },
+    {
+      "role": "Operations",
+      "signed": true,
+      "signer": "Paul Brennan",
+      "date": "10/21/2026"
+    },
+    {
+      "role": "Payroll",
+      "signed": true,
+      "signer": "Ina Vasquez",
+      "date": "10/23/2026"
+    }
+  ],
+  "confidence": 0.95
+}

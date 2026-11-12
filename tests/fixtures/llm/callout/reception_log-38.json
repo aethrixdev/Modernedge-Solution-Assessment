@@ -1,0 +1,25 @@
+{
+  "is_absence": true,
+  "is_followup": false,
+  "employee_name": "Teuta Bytyqi",
+  "building_text": "Halcyon",
+  "shift": "night",
+  "days": [
+    {
+      "kind": "relative",
+      "value": "today",
+      "text": "today"
+    },
+    {
+      "kind": "weekday",
+      "value": "friday",
+      "text": "friday"
+    }
+  ],
+  "category": "bereavement",
+  "bereavement_relation": "father",
+  "stated_received_time": null,
+  "language": "en",
+  "english_summary": "father died; out tonight and Friday",
+  "confidence": 0.95
+}

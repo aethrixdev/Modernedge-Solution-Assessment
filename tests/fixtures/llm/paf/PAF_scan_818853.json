@@ -1,0 +1,32 @@
+{
+  "action": "transfer",
+  "employee_id": "E10028",
+  "employee_name": "Mimoza M. Leka",
+  "job_class": "Cleaner",
+  "effective_date": "10/19/2026",
+  "from_location": "BLD-03 (Meridian Plaza), Night, Dept 430",
+  "to_location": "BLD-02 (Meridian One), Night, Dept 420",
+  "last_day_worked": null,
+  "remarks": "Permanent move to fill open night post. Employee agreed.",
+  "approvals": [
+    {
+      "role": "Human Resources",
+      "signed": true,
+      "signer": "Denise Coughlin",
+      "date": "10/14/2026"
+    },
+    {
+      "role": "Operations",
+      "signed": true,
+      "signer": "Paul Brennan",
+      "date": "10/14/2026"
+    },
+    {
+      "role": "Payroll",
+      "signed": true,
+      "signer": "Ina Vasquez",
+      "date": "10/15/2026"
+    }
+  ],
+  "confidence": 0.95
+}

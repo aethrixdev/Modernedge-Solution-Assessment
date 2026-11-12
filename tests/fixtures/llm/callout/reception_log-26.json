@@ -1,0 +1,20 @@
+{
+  "is_absence": true,
+  "is_followup": false,
+  "employee_name": "David Bennett",
+  "building_text": "Bramwell House",
+  "shift": "night",
+  "days": [
+    {
+      "kind": "relative",
+      "value": "today",
+      "text": "today"
+    }
+  ],
+  "category": "family_emergency",
+  "bereavement_relation": null,
+  "stated_received_time": null,
+  "language": "en",
+  "english_summary": "kid sick, out tonight",
+  "confidence": 0.95
+}
