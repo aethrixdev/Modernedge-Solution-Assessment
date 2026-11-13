@@ -1,5 +1,5 @@
 """HTTP API for the interface: building view, KPI panel (with drill-down to
-source records) and review queue. Reads the tables the pipeline loaded into
+source records), review queue and chatbot. Reads the tables the pipeline loaded into
 Postgres.
 
 Run locally:  uvicorn api.main:app --reload --port 8000
@@ -13,6 +13,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import ProgrammingError
+
+from . import chat
 
 app = FastAPI(title="ModernEdge operations API")
 engine = create_engine(os.getenv("DATABASE_URL", "postgresql+psycopg://modernedge:modernedge@localhost:5432/modernedge"))
@@ -146,3 +148,15 @@ def payroll():
     """What we sent to payroll, and the audit trail of every call."""
     return {"submissions": rows("SELECT * FROM out_payroll_submissions"),
             "audit": rows("SELECT * FROM payroll_audit ORDER BY at")}
+
+
+# ---- chatbot -------------------------------------------------------------------------
+class ChatRequest(BaseModel):
+    question: str
+    history: list[dict] = []
+
+
+@app.post("/api/chat")
+def ask(body: ChatRequest):
+    """Answer a question from the data only, with citations."""
+    return chat.answer(engine, body.question, body.history)
