@@ -19,3 +19,4 @@
 - Switched to Claude (Opus 5.5) with my own Anthropic key. Groq's free tier ran out before a full run could finish in my prototype.
 - Decided a transfer form (PAF) only counts if all three people signed it: HR, Operations and Payroll. Claude just reads the scan; the code checks the signatures. So Brian Walker's transfer, signed only by HR, doesn't change anything.
 - Payroll gets checked before every write, so a re-run or a lost reply never makes a duplicate.
+- The six output files follow the package README exactly, since that's what gets scored. output/decisions_log.md is this log plus the conflicts found in that run's data.
