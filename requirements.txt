@@ -7,3 +7,9 @@ tzdata==2026.6          # time zones on Windows (zoneinfo needs it)
 pypdf==5.1.0
 pydantic==2.14.3
 anthropic==2.8.0
+pandas==2.2.3
+SQLAlchemy==2.0.36
+psycopg[binary]==3.2.3
+fastapi==0.115.6
+uvicorn==0.32.1
+httpx==0.28.1           # only for the API tests (TestClient)

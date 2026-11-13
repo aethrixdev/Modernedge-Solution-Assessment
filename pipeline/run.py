@@ -6,7 +6,7 @@
  4. Call-outs -> absences -> payroll codes -> payroll writes (or review queue).
  5. Dispatch coverage -> invoice matching -> unbilled coverage -> backup notes.
  6. KPIs and AR aging, with a fact row behind every figure.
- 7. Write ./output.
+ 7. Write ./output and load Postgres.
 """
 import calendar
 import json
@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 import openpyxl
 
-from . import attendance, callouts, coverage, kpi, outputs
+from . import attendance, callouts, coverage, db, kpi, outputs
 from .clients.dispatch import DispatchClient
 from .clients.finance import FinanceClient, ReportError
 from .clients.payroll import PayrollClient
@@ -206,6 +206,17 @@ def main() -> None:
     for a in absences:
         if a.code and a.code not in payroll_codes:
             a.review.append(f"code {a.code} not accepted by payroll")
+    # A reviewer's decision from an earlier run stands: approved items are written
+    # with the reviewer's code, rejected ones stay out of payroll.
+    decisions = db.reviewer_decisions()
+    for a in absences:
+        d = decisions.get(f"{a.employee.hr_id}-{a.day}")
+        if d and a.review:
+            if d["action"] == "approve" and d["code"]:
+                a.notes.append(f"approved by reviewer as {d['code']} (was: {'; '.join(a.review)})")
+                a.code, a.code_reason, a.review = d["code"], f"approved by reviewer: {d['note'] or 'no note'}", []
+            elif d["action"] == "reject":
+                a.review.append(f"rejected by reviewer: {d['note'] or 'no note'}")
     writer = PayrollWriter(payroll, s.dry_run)
     for a in absences:
         writer.write(a)
@@ -262,6 +273,8 @@ def main() -> None:
     outputs.write_decisions_log(out, standing, F, list(reg.aliases.values()), summary)
     (out / "payroll_audit.json").write_text(json.dumps(writer.audit, indent=1, default=str), encoding="utf-8")
 
+    db.load(build_tables(locals()))
+
     for line in summary:
         log.info(line)
 
@@ -307,6 +320,130 @@ def labor_budget_check(data: Path, directory: EmployeeDirectory, wages, on: date
                    "(it appears to use the previous year's rates). Not used for any figure.")
     return rows
 
+
+
+def build_tables(v: dict) -> dict[str, list]:
+    """Everything the API/UI/chatbot needs, as rows for Postgres."""
+    directory, reg, absences, shifts = v["directory"], v["reg"], v["absences"], v["shifts"]
+    start, end = v["start"], v["end"]
+
+    employees = [{
+        "hr_id": e.hr_id, "name": e.full_name, "job_class": e.job_class, "union_member": e.union_member,
+        "employment_type": e.employment_type, "shift": e.shift, "home_location": e.home_location,
+        "home_building_end": directory.home_building(e, end), "department": e.department,
+        "hire_date": e.hire_date, "termination_date": e.termination_date,
+        "payroll_id": directory.payroll_id.get(e.hr_id),
+        "dispatch_worker_id": next((w for w, x in directory.worker.items() if x is e), None),
+        "source": "hr_roster", "source_ref": f"row {e.source_row}",
+    } for e in directory.employees]
+
+    absence_rows = [{
+        "absence_id": f"{a.employee.hr_id}-{a.day}", "hr_id": a.employee.hr_id, "employee": a.employee.full_name,
+        "payroll_id": a.payroll_id, "date": a.day, "shift": a.shift, "building": a.building, "category": a.category,
+        "code": a.code, "code_reason": a.code_reason, "notice_hours": a.notice_hours,
+        "received_at": a.received_at, "confidence": a.confidence, "decision": a.decision,
+        "submission_id": a.submission_id, "final_status": a.final_status,
+        "review_reasons": "; ".join(dict.fromkeys(a.review)), "notes": "; ".join(a.notes),
+        "source": a.primary.report.source, "source_ref": a.primary.report.source_ref,
+        "all_reports": "; ".join(r.ref for r in a.reports),
+    } for a in absences]
+
+    review = [r for r in absence_rows if r["decision"] == "held_for_review"] + [{
+        "absence_id": f"unresolved-{ev.ref}", "hr_id": None, "employee": ev.report.caller, "date": None,
+        "review_reasons": "; ".join(ev.review), "source": ev.report.source, "source_ref": ev.report.source_ref,
+        "decision": "held_for_review"} for ev in v["unresolved"]]
+
+    reports = [{
+        "source": r.source, "source_ref": r.source_ref, "logged_at": r.logged_at, "channel": r.channel,
+        "vm_received_at": r.vm_received_at, "caller": r.caller, "message": r.message,
+    } for r in v["reports"]]
+
+    coverage_rows = [{
+        "posting_id": c.posting_id, "building": c.building, "date": c.day, "shift": c.shift, "reason": c.reason,
+        "status": c.status, "absent_text": c.absent_text, "absent_hr_id": c.absent.hr_id if c.absent else None,
+        "position": c.absent.job_class if c.absent else None, "worker_id": c.worker_id,
+        "covering_hr_id": c.covering.hr_id if c.covering else None,
+        "covering_name": c.covering.full_name if c.covering else None, "fill_type": c.fill_type,
+        "rate": c.rate, "burden": c.burden, "markup": c.markup, "billable": c.billable,
+        "billable_amount": c.billable_amount, "ot_dollars": c.ot_dollars, "on_site_in": c.on_site_in,
+        "on_site_out": c.on_site_out, "invoice_ref": c.invoice_ref, "invoice_amount": c.invoice_amount,
+        "invoice_match": c.invoice_match, "unbilled": c.billable and not c.invoice_ref,
+        "notes": "; ".join(c.notes), "source": "dispatch /v2/postings", "source_ref": c.posting_id,
+    } for c in shifts]
+
+    # building view: who was assigned, punched, absent, covering - per building, date and shift
+    by_key = defaultdict(list)
+    for sess in v["sessions"]:
+        by_key[(sess.building, sess.day, sess.shift)].append(sess)
+    absent_by = {(a.employee.hr_id, a.day): a for a in absences}
+    view = []
+    from .rules.shifts import weekdays
+    for b in v["building_names"]:
+        for d in weekdays(start, end):
+            for shift in ("day", "night"):
+                assigned = [e for e in directory.employees if e.employment_type == "PERMANENT" and e.employed_on(d)
+                            and directory.home_building(e, d) == b and e.shift.lower() == shift]
+                sess_here = {x.badge: x for x in by_key.get((b, d, shift), [])}
+                for e in assigned:
+                    x = sess_here.pop(e.number, None)
+                    a = absent_by.get((e.hr_id, d))
+                    status = "worked" if x else (f"absent: {a.category.replace('_', ' ')}" if a else "no punch recorded")
+                    view.append({"building": b, "date": d, "shift": shift, "hr_id": e.hr_id, "name": e.full_name,
+                                 "role": "assigned", "status": status,
+                                 "clock_in": x.clock_in.strftime("%H:%M") if x and x.clock_in else None,
+                                 "clock_out": x.clock_out.strftime("%H:%M") if x and x.clock_out else None,
+                                 "posting_id": None, "source_ref": (x.refs if x else (a.primary.ref if a else "hr_roster"))})
+                for c in shifts:
+                    if c.building == b and c.day == d and c.shift == shift:
+                        who = c.covering
+                        x = sess_here.pop(who.number, None) if who else None
+                        view.append({"building": b, "date": d, "shift": shift, "hr_id": who.hr_id if who else None,
+                                     "name": who.full_name if who else None, "role": "covering",
+                                     "status": f"{c.status.lower()}{' (OT)' if c.overtime else ''}",
+                                     "clock_in": x.clock_in.strftime("%H:%M") if x and x.clock_in else None,
+                                     "clock_out": x.clock_out.strftime("%H:%M") if x and x.clock_out else None,
+                                     "posting_id": c.posting_id, "source_ref": c.posting_id})
+                for x in sess_here.values():   # punched here but neither assigned nor covering
+                    e = directory.by_number.get(x.badge)
+                    view.append({"building": b, "date": d, "shift": shift, "hr_id": e.hr_id if e else None,
+                                 "name": e.full_name if e else f"badge {x.badge}", "role": "other",
+                                 "status": "worked", "clock_in": x.clock_in.strftime("%H:%M") if x.clock_in else None,
+                                 "clock_out": x.clock_out.strftime("%H:%M") if x.clock_out else None,
+                                 "posting_id": None, "source_ref": x.refs})
+
+    posts = []
+    for b in v["building_names"]:
+        day, night = contracts.posts_in_force(v["terms"][b][0], v["post_changes"], end)
+        bt, c = v["terms"][b]
+        posts.append({"building": b, "client": c.client, "contractor": c.contractor, "day_posts": day, "night_posts": night,
+                      "pricing": bt.pricing, "monthly_fee": bt.monthly_fee, "markup": bt.markup,
+                      "coverage_billable": bt.coverage_billable, "backup_template": c.backup_template,
+                      "source": c.source_file})
+
+    kpi_rows = [{k: (float(x) if x is not None and k in outputs.MONEY_COLS | outputs.RATE_COLS else x) for k, x in r.items()}
+                for r in v["kpi_rows"]]
+    return {
+        "dim_employee": employees,
+        "dim_building": posts,
+        "dim_building_alias": [vars(a) for a in reg.aliases.values()],
+        "raw_callout_report": reports,
+        "raw_invoice_line": [dict(vars(x), ref=x.ref) for x in v["inv_lines"]],
+        "raw_ar_item": [vars(x) for x in v["ar_items"]],
+        "raw_gl_line": [vars(x) for x in v["gl_lines"]],
+        "raw_paf": v["paf_records"],
+        "raw_labor_budget": v["budget_rows"],
+        "fact_absence": absence_rows,
+        "fact_coverage": coverage_rows,
+        "fact_kpi": [vars(f) for f in v["facts"]],
+        "fact_building_view": view,
+        "fact_ar_open": v["ar_detail"],
+        "review_queue": review,
+        "payroll_audit": v["writer"].audit,
+        "out_kpis_by_building": kpi_rows,
+        "out_ar_aging": [{"bucket": k, "open_amount": float(x)} for k, x in v["ar_totals"].items()],
+        "out_payroll_submissions": v["sub_rows"],
+        "out_exceptions": v["F"].exception_dicts(),
+    }
 
 
 if __name__ == "__main__":
