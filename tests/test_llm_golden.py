@@ -1,8 +1,8 @@
 """Compare the LIVE LLM's readings with the hand-checked golden answers.
 
-Skipped unless GROQ_API_KEY is set (in the environment or .env). About 70 small
-requests; replies are cached under cache/llm, so a re-run is free. Run with:
-    python -m pytest tests/test_llm_golden.py -v
+It costs real money (about 70 Claude requests), so it only runs when asked:
+    $env:RUN_LIVE_LLM="1"; python -m pytest tests/test_llm_golden.py -v
+Replies are cached under cache/llm, so a re-run is free.
 """
 import os
 from pathlib import Path
@@ -17,8 +17,8 @@ from tests.fixtures.golden_llm import CHAT, RECEPTION
 
 load_dotenv()
 DATA = Path(os.getenv("DATA_DIR", "../ModernEdge_AI_Solutions_Engineer_Assessment/data"))
-pytestmark = pytest.mark.skipif(not os.getenv("GROQ_API_KEY") or not DATA.exists(),
-                                reason="needs GROQ_API_KEY and the sample data")
+pytestmark = pytest.mark.skipif(os.getenv("RUN_LIVE_LLM") != "1" or not os.getenv("ANTHROPIC_API_KEY") or not DATA.exists(),
+                                reason="live LLM test: set RUN_LIVE_LLM=1 (needs ANTHROPIC_API_KEY and the sample data)")
 
 
 def _reports():
