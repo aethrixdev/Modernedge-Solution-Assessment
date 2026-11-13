@@ -20,3 +20,4 @@
 - Decided a transfer form (PAF) only counts if all three people signed it: HR, Operations and Payroll. Claude just reads the scan; the code checks the signatures. So Brian Walker's transfer, signed only by HR, doesn't change anything.
 - Payroll gets checked before every write, so a re-run or a lost reply never makes a duplicate.
 - The six output files follow the package README exactly, since that's what gets scored. output/decisions_log.md is this log plus the conflicts found in that run's data.
+- When someone approves a held call-out in the UI, it goes to payroll the same careful way as the pipeline. Their choice is saved, so running the pipeline again doesn't put it back on hold.

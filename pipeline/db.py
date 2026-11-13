@@ -32,6 +32,20 @@ def _frame(rows) -> pd.DataFrame:
     return df
 
 
+def reviewer_decisions() -> dict[str, dict]:
+    """Decisions reviewers made in the UI (table review_action, which the
+    pipeline never drops). Latest decision per absence wins."""
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        return {}
+    try:
+        with create_engine(url).connect() as conn:
+            rows = conn.execute(text("SELECT absence_id, action, code, note FROM review_action ORDER BY at")).all()
+    except Exception:   # table does not exist yet: no decisions
+        return {}
+    return {r.absence_id: {"action": r.action, "code": r.code, "note": r.note} for r in rows}
+
+
 def load(tables: dict[str, list]) -> bool:
     """Replace every table with this run's rows (a full refresh). Skipped if DATABASE_URL isn't set."""
     url = os.getenv("DATABASE_URL")

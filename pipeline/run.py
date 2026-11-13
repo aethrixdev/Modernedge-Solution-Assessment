@@ -206,6 +206,17 @@ def main() -> None:
     for a in absences:
         if a.code and a.code not in payroll_codes:
             a.review.append(f"code {a.code} not accepted by payroll")
+    # A reviewer's decision from an earlier run stands: approved items are written
+    # with the reviewer's code, rejected ones stay out of payroll.
+    decisions = db.reviewer_decisions()
+    for a in absences:
+        d = decisions.get(f"{a.employee.hr_id}-{a.day}")
+        if d and a.review:
+            if d["action"] == "approve" and d["code"]:
+                a.notes.append(f"approved by reviewer as {d['code']} (was: {'; '.join(a.review)})")
+                a.code, a.code_reason, a.review = d["code"], f"approved by reviewer: {d['note'] or 'no note'}", []
+            elif d["action"] == "reject":
+                a.review.append(f"rejected by reviewer: {d['note'] or 'no note'}")
     writer = PayrollWriter(payroll, s.dry_run)
     for a in absences:
         writer.write(a)
