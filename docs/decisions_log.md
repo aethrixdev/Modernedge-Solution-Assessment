@@ -21,3 +21,4 @@
 - Payroll gets checked before every write, so a re-run or a lost reply never makes a duplicate.
 - The six output files follow the package README exactly, since that's what gets scored. output/decisions_log.md is this log plus the conflicts found in that run's data.
 - When someone approves a held call-out in the UI, it goes to payroll the same careful way as the pipeline. Their choice is saved, so running the pipeline again doesn't put it back on hold.
+- One `docker compose up` starts everything. Payroll writes are on in Docker since the evaluation runs it once; on my machine it stays dry.

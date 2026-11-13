@@ -1,0 +1,25 @@
+# Optional: run next to the package's mock_systems on the SAME Docker network,
+# instead of going out to the host and back through host.docker.internal.
+# (On this machine Docker Desktop's host port forwarding crashed under load.)
+#
+#   cd <package>/mock_systems && docker compose up -d
+#   docker compose -f docker-compose.yml -f docker-compose.mocknet.yml up --build
+#
+# "mock_systems_default" is the network Docker Compose creates for the mock_systems folder.
+x-mock-urls: &mock-urls
+  PAYROLL_URL: http://payroll:8081
+  DISPATCH_URL: http://dispatch:8082
+  FINANCE_URL: http://finance:8083
+
+services:
+  pipeline:
+    environment: *mock-urls
+    networks: [default, mocks]
+  api:
+    environment: *mock-urls
+    networks: [default, mocks]
+
+networks:
+  mocks:
+    name: mock_systems_default
+    external: true

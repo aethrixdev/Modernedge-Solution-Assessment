@@ -1,0 +1,86 @@
+# One command:  docker compose up
+#
+#   db        Postgres - the data spine
+#   pipeline  one-shot job: reads ./data and the three client systems, writes
+#             ./output, loads Postgres, writes absences to payroll
+#   api       FastAPI on :8000 (building view, KPIs, review queue, chatbot)
+#   web       React UI on :3000
+#
+# The client systems run separately (mock_systems/ in the package). Inside a
+# container "localhost" is the container itself, so by default we reach them
+# on the host through host.docker.internal. Override the three URLs to point
+# at other copies.
+x-app-env: &app-env
+  DATABASE_URL: postgresql+psycopg://modernedge:modernedge@db:5432/modernedge
+  DATA_DIR: /data
+  OUTPUT_DIR: /output
+  PAYROLL_URL: ${PAYROLL_URL:-http://host.docker.internal:8081}
+  DISPATCH_URL: ${DISPATCH_URL:-http://host.docker.internal:8082}
+  FINANCE_URL: ${FINANCE_URL:-http://host.docker.internal:8083}
+  PAYROLL_API_KEY: ${PAYROLL_API_KEY:-assess-7f3c9a}
+  DISPATCH_CLIENT_ID: ${DISPATCH_CLIENT_ID:-me-assess}
+  DISPATCH_CLIENT_SECRET: ${DISPATCH_CLIENT_SECRET:-d1sp4tch-s3cret}
+  FINANCE_USER: ${FINANCE_USER:-svc_assess}
+  FINANCE_PASSWORD: ${FINANCE_PASSWORD:-Q4-close!}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  LLM_MODEL: ${LLM_MODEL:-}
+  LLM_MODE: ${LLM_MODE:-}
+  LLM_FIXTURES_DIR: ${LLM_FIXTURES_DIR:-}
+  LLM_CACHE_DIR: /cache/llm
+  # The evaluation resets payroll and runs once, so writes are ON here.
+  # Set DRY_RUN=true to try the system without touching payroll.
+  DRY_RUN: ${DRY_RUN:-false}
+  PERIOD: ${PERIOD:-}
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: modernedge
+      POSTGRES_PASSWORD: modernedge
+      POSTGRES_DB: modernedge
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U modernedge"]
+      interval: 2s
+      retries: 30
+
+  pipeline:
+    build: .
+    command: python -m pipeline.run
+    environment: *app-env
+    volumes:
+      - ${DATA_DIR:-./data}:/data:ro
+      - ./output:/output
+      - llmcache:/cache
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    depends_on:
+      db: {condition: service_healthy}
+    restart: "no"
+
+  api:
+    build: .
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    environment: *app-env
+    volumes:
+      - ${DATA_DIR:-./data}:/data:ro
+    ports: ["8000:8000"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    depends_on:
+      db: {condition: service_healthy}
+
+  web:
+    build: ./web
+    ports: ["3000:80"]
+    depends_on: [api]
+
+  # Run the test suite:  docker compose run --rm tests
+  tests:
+    build: .
+    command: python -m pytest -q
+    profiles: ["test"]
+
+volumes:
+  pgdata:
+  llmcache:

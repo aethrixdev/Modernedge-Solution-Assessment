@@ -1,0 +1,10 @@
+.venv
+.env
+output
+raw
+cache
+**/__pycache__
+.pytest_cache
+web/node_modules
+web/dist
+data
