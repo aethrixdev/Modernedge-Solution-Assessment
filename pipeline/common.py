@@ -39,6 +39,16 @@ def parse_amount(text) -> Decimal:
     return -value if negative else value
 
 
+def fmt_money(value) -> str:
+    """Output format for dollars: 2 decimals, no symbol, no thousands separator."""
+    return f"{money(value):.2f}"
+
+
+def fmt_rate(value) -> str:
+    """Output format for rates: a decimal (0.0425), 4 places."""
+    return "" if value is None else f"{Decimal(str(value)).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)}"
+
+
 @dataclass
 class ExceptionRow:
     """One row of exceptions.csv."""
