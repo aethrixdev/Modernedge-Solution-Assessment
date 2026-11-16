@@ -14,6 +14,7 @@ docker compose up --build
 | Interface | http://localhost:3000 (KPI panel, building view, review queue, payroll and exceptions, chatbot) |
 | API | http://localhost:8000/docs |
 | Decisions log (standing rules) | [`docs/decisions_log.md`](docs/decisions_log.md). The run appends the conflicts it found to `output/decisions_log.md` |
+| Where AI was used, and what I verified | [`docs/AI_USAGE.md`](docs/AI_USAGE.md) |
 
 ---
 
